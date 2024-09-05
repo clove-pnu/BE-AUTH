@@ -76,7 +76,7 @@ public class AuthService {
         }
         Long memberId = member.getId();
         RefreshToken refreshToken = refreshTokenRepository.findByMemberId(memberId)
-                .orElseThrow(()-> new RuntimeException("로그인 되어 잇지 않은 사용자입니다."));
+                .orElseThrow(()-> new RuntimeException("로그인 되어 있지 않은 사용자입니다."));
 
         // RefreshToken 삭제
         refreshTokenRepository.delete(refreshToken);
@@ -89,7 +89,7 @@ public class AuthService {
     public TokenDto reissue(String refreshToken) {
         // 1. Refresh Token 검증
         if (!tokenProvider.validateToken(refreshToken)) {
-            throw new RuntimeException("Refresh Token 이 유효하지 않습니다.");
+            throw new RuntimeException("Refresh Token이 유효하지 않습니다.");
         }
         logger.info("서비스1");
         // 2. Refresh Token에서 Member ID 가져오기
