@@ -6,5 +6,8 @@ RUN gradle build -x test --no-daemon
 FROM openjdk:17-jdk-slim
 COPY --from=build /home/gradle/project/build/libs/msa-auth-1.0.0.jar /app/app.jar
 
+ENV SPRING_PROFILES_ACTIVE=k8s
+
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar", "--spring.profiles.active=${SPRING_PROFILES_ACTIVE}"]
