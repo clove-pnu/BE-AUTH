@@ -47,11 +47,16 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+bootJar {
+	archiveBaseName.set('msa-auth')  // 원하는 기본 이름
+	archiveVersion.set('1.0.0')    // 원하는 버전
+}
+
+tasks.getByName('jar') {
+	enabled = false
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 }
 
-jar {
-	archiveBaseName.set('msa-auth')  // 원하는 기본 이름
-	archiveVersion.set('1.0.0')    // 원하는 버전
-}
