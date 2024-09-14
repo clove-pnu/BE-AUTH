@@ -26,17 +26,20 @@ public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @PostMapping("/signup")
-    public ResponseEntity<MemberResponseDto> signup(@RequestBody MemberRequestDto memberRequestDto) {
-        return ResponseEntity.ok(authService.signup(memberRequestDto));
+    public ResponseEntity<String> signup(@RequestBody MemberRequestDto memberRequestDto) {
+        String responseMessage = memberRequestDto.getEmail()+", "+memberRequestDto.getAuthority() + " 회원가입 완료";
+        return ResponseEntity.ok(responseMessage);
     }
 
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody MemberRequestDto memberRequestDto, HttpServletResponse response) {
         TokenDto tokenDto = authService.login(memberRequestDto);
 
+        // Access 토큰을 Authorization 헤더에 저장
         HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.SET_COOKIE, "accessToken=" + tokenDto.getAccessToken() + "; HttpOnly; Secure; Path=/");
+        headers.add(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDto.getAccessToken());
 
+        // Refresh 토큰을 HttpOnly 쿠키에 저장
         CookieUtil.addRefreshTokenToCookie(response, tokenDto.getRefreshToken());
 
         String successMessage = memberRequestDto.getEmail() + " 로그인 성공";
@@ -53,18 +56,21 @@ public class AuthController {
 
     @PostMapping("/reissue")
     public ResponseEntity<String> reissue(HttpServletRequest request, HttpServletResponse response) {
-        String refreshToken = CookieUtil.extractRefreshToken(request)
+        String refreshToken = CookieUtil.extractTokenFromCookie(request, "refreshToken")
                 .orElseThrow(() -> new RuntimeException("Refresh Token이 존재하지 않습니다."));
-        logger.info("컨트롤러0");
 
         TokenDto tokenDto = authService.reissue(refreshToken);
-        logger.info("컨트롤러1");
 
+        // 새로운 Access 토큰을 Authorization 헤더에 저장
         HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.SET_COOKIE, "accessToken=" + tokenDto.getAccessToken() + "; HttpOnly; Secure; Path=/");
+        headers.add(HttpHeaders.AUTHORIZATION, "Bearer " + tokenDto.getAccessToken());
 
-        String successMessage = "Access 토큰이 정상적으로 발급되었습니다.";
+        // Refresh 토큰을 HttpOnly 쿠키에 저장
+        CookieUtil.addRefreshTokenToCookie(response, tokenDto.getRefreshToken());
+
+        String successMessage = "Access,Refresh 토큰이 정상적으로 발급되었습니다.";
 
         return ResponseEntity.ok().headers(headers).body(successMessage);
     }
 }
+
