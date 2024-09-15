@@ -11,8 +11,8 @@ import lombok.*;
 public class LoginDto {
 
     @NotNull
-    private String name;
-
+    private String email;
     @NotNull
     private String password;
+
 }

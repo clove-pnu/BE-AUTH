@@ -3,25 +3,26 @@ package com.example.msaauth.service;
 
 
 import com.example.msaauth.controller.AuthController;
-import com.example.msaauth.dto.MemberRequestDto;
-import com.example.msaauth.dto.MemberResponseDto;
-import com.example.msaauth.dto.TokenDto;
-import com.example.msaauth.dto.TokenRequestDto;
+import com.example.msaauth.dto.*;
 import com.example.msaauth.entity.Member;
 import com.example.msaauth.entity.RefreshToken;
+import com.example.msaauth.exception.DuplicateEmailException;
 import com.example.msaauth.jwt.TokenProvider;
 import com.example.msaauth.repository.MemberRepository;
 import com.example.msaauth.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 @Service
 @RequiredArgsConstructor
@@ -35,34 +36,39 @@ public class AuthService {
     @Transactional
     public MemberResponseDto signup(MemberRequestDto memberRequestDto) {
         if (memberRepository.existsByEmail(memberRequestDto.getEmail())) {
-            throw new RuntimeException("이미 가입되어 있는 유저입니다");
+            throw new DuplicateEmailException("이미 사용 중인 이메일입니다.");
         }
 
         Member member = memberRequestDto.toMember(passwordEncoder);
-        return MemberResponseDto.of(memberRepository.save(member));
+        Member savedMember = memberRepository.save(member);
+
+        // 이메일과 권한 정보만 응답
+        return MemberResponseDto.of(savedMember);
     }
 
     @Transactional
-    public TokenDto login(MemberRequestDto memberRequestDto) {
-        UsernamePasswordAuthenticationToken authenticationToken = memberRequestDto.toAuthentication();
+    public TokenResponseDto login(MemberRequestDto memberRequestDto) {
+        try {
+            UsernamePasswordAuthenticationToken authenticationToken =
+                    memberRequestDto.toAuthentication();
 
-        //    authenticate 메서드가 실행이 될 때 CustomUserDetailsService 에서 만들었던 loadUserByUsername 메서드가 실행됨
-        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+            Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
 
-        // 3. 인증 정보를 기반으로 JWT 토큰 생성
-        TokenDto tokenDto = tokenProvider.generateTokenDto(authentication);
+            TokenDto tokenDto = tokenProvider.generateTokenDto(authentication);
 
-        // 4. RefreshToken 저장
-        RefreshToken refreshToken = RefreshToken.builder()
-                .key(authentication.getName())
-                .value(tokenDto.getRefreshToken())
-                .memberId(Long.parseLong(authentication.getName()))
-                .build();
+            RefreshToken refreshToken = RefreshToken.builder()
+                    .key(authentication.getName())
+                    .value(tokenDto.getRefreshToken())
+                    .memberId(Long.parseLong(authentication.getName()))
+                    .build();
 
-        refreshTokenRepository.save(refreshToken);
+            refreshTokenRepository.save(refreshToken);
 
-        // 5. 토큰 발급
-        return tokenDto;
+            // 액세스 토큰과 리프레시 토큰 정보 반환
+            return new TokenResponseDto(tokenDto.getAccessToken(), tokenDto.getRefreshToken());
+        } catch (BadCredentialsException e) {
+            throw new RuntimeException("이메일 또는 비밀번호가 일치하지 않습니다.");
+        }
     }
 
     @Transactional
